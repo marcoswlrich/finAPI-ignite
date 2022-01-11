@@ -1,3 +1,4 @@
+const { response } = require('express')
 const express = require('express')
 const { v4: uuidv4 } = require('uuid')
 
@@ -7,13 +8,29 @@ app.use(express.json())
 
 const customers = []
 
-app.post('/account', (req, res) => {
-  const { cpf, name } = req.body
+//Middleware
+
+function verifyIfExistsAccountCPF(request, response, next) {
+  const { cpf } = request.headers
+
+  const customer = customers.find(customer => customer.cpf === cpf)
+
+  if (!customer) {
+    return response.status(400).json({ error: 'Customer not found' })
+  }
+
+  request.customer = customer
+
+  return next()
+}
+
+app.post('/account', (request, response) => {
+  const { cpf, name } = request.body
 
   const customerAlreadyExist = customers.some(customer => customer.cpf === cpf)
 
   if (customerAlreadyExist) {
-    return res.status(400).json({ error: 'Customer already exist!' })
+    return response.status(400).json({ error: 'Customer already exist!' })
   }
 
   customers.push({
@@ -23,15 +40,12 @@ app.post('/account', (req, res) => {
     statement: []
   })
 
-  return res.status(201).send()
+  return response.status(201).send()
 })
 
-app.get('/statement/:cpf', (req, res) => {
-  const { cpf } = req.params
-
-  const customer = customers.find(customer => customer.cpf === cpf)
-
-  return res.json(customer.statement)
+app.get('/statement', verifyIfExistsAccountCPF, (request, response) => {
+  const { customer } = request
+  return response.json(customer.statement)
 })
 
 app.listen(3333)
